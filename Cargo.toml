@@ -1,0 +1,9 @@
+[package]
+name = "raspi"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+gpio-cdev = "0.5.1"
+timer = { git = "https://github.com/danyspin97/timer.rs", rev = "f99861cacd5f092b9f1099c5a025a0ba7492139a" }
+
