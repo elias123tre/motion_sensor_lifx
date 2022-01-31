@@ -2,6 +2,7 @@
 
 Left to implement:
 
+- [ ] Abstract timer to struct
 - [ ] Algorithm for dimming when timer has passed
 - [ ] Socket connection to Lifx lamp
 - [ ] UDP Packet generation (maybe use python version)
