@@ -8,3 +8,4 @@ Left to implement:
 - [ ] UDP Packet generation (maybe use python version)
 - [ ] Turning on or off at certain times
 - [ ] Turning on or off with API
+- [ ] Add Rust Github action to build and test
