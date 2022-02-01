@@ -1,34 +1,35 @@
 {
 	"version": "2.0.0",
-	"command": "powershell",
-	"args": [
-		"-Command"
-	],
 	"tasks": [
 		{
-			"label": "Cross-compile",
+			"label": "Cargo cross-compile build",
 			"type": "shell",
-			"command": "cargo build --release --target=arm-unknown-linux-gnueabihf",
+			"command": "cargo",
+			"args": [
+				"build",
+				"--release",
+				"--target=arm-unknown-linux-gnueabihf"
+			],
 			"problemMatcher": [
 				"$rustc"
 			],
 			"group": {
 				"kind": "build",
 				"isDefault": true
-			}
+			},
 		},
 		{
 			"label": "Copy to Raspberry Pi",
 			"type": "shell",
-			"command": "robocopy /NFL /NDL /NJH /NJS /nc /ns /np target/arm-unknown-linux-gnueabihf/release P:/ raspi; True",
+			"command": "robocopy /NFL /NDL /NJH /NJS /nc /ns /np target/arm-unknown-linux-gnueabihf/release P:/ motion_sensor_lifx; True",
 			"dependsOn": [
-				"Cross-compile"
-			],
+				"Cargo cross-compile build"
+			]
 		},
 		{
 			"label": "Run on Raspberry Pi",
 			"type": "shell",
-			"command": "ssh -t pi@raspi \"sudo ~/raspi\"",
+			"command": "ssh -t pi@raspi \"sudo ~/motion_sensor_lifx\"",
 			"dependsOn": [
 				"Copy to Raspberry Pi"
 			],
@@ -36,6 +37,6 @@
 				"kind": "test",
 				"isDefault": true
 			}
-		}
+		},
 	]
 }
