@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 gpio-cdev = "0.5.1"
+lifx-core = "0.2.0"

@@ -1,44 +1,31 @@
-use std::sync::mpsc;
 use std::sync::mpsc::Sender;
+use std::sync::{mpsc, MutexGuard, PoisonError};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use crate::SIGNAL;
+use crate::{ACTION, SIGNAL};
 
 pub type SignalResult = Result<(), mpsc::SendError<SIGNAL<String>>>;
-/// First argument is if timeout was reached before starting again
-pub type OnStart = fn(bool) -> ();
-/// First argument is if thread already is stopped
-pub type OnStop = fn(bool) -> ();
-pub type OnTimeout = fn() -> ();
 
 /// A cancellable/interruptable timer
 #[derive(Debug)]
 pub struct Timer {
+    #[allow(dead_code)]
     thread: JoinHandle<()>,
     pub sender: Sender<SIGNAL<String>>,
-    pub timeout: Arc<Mutex<Duration>>,
+    timeout: Arc<Mutex<Duration>>,
 }
 
 impl Timer {
     /// Create new timer
-    ///
-    /// * `on_start` - Function with first argument: has_timed_out
-    /// * `on_stop` - Function with first argument: already_stopped
-    /// * `on_timeout` - Function
-    pub fn new(
-        timeout: Duration,
-        on_start: Option<OnStart>,
-        on_stop: Option<OnStop>,
-        on_timeout: Option<OnTimeout>,
-    ) -> Self {
+    pub fn new(timeout: Duration, callback: fn(ACTION) -> ()) -> Self {
         let timeout_mutex = Arc::new(Mutex::new(timeout));
         let timeout_inner = Arc::clone(&timeout_mutex);
 
         // Create sender and receiver to communicate with timer thread
-        let (sender, receiver) = mpsc::channel::<SIGNAL<String>>();
+        let (sender, receiver) = mpsc::channel();
 
         // Create forever running timer thread that listens on channel
         let thread = thread::spawn(move || {
@@ -48,15 +35,15 @@ impl Timer {
                 // Wait for signal or timeout, whichever comes first
                 match receiver.recv_timeout(*timeout_inner.lock().unwrap()) {
                     Ok(SIGNAL::STOP) => {
-                        if let Some(stop) = on_stop {
-                            stop(false);
-                        }
+                        callback(ACTION::STOP {
+                            already_stopped: false,
+                        });
                         running = false;
                     }
                     Ok(SIGNAL::START) => {
-                        if let Some(start) = on_start {
-                            start(false);
-                        }
+                        callback(ACTION::START {
+                            has_timed_out: false,
+                        });
                         running = true;
                     }
                     // Arbitrary message received
@@ -65,25 +52,24 @@ impl Timer {
                     }
                     // Signal receiving timed out
                     Err(mpsc::RecvTimeoutError::Timeout) if running => {
-                        if let Some(timeout) = on_timeout {
-                            timeout();
-                        }
+                        callback(ACTION::TIMEOUT);
 
                         // Block until start signal is received
                         loop {
                             match receiver.recv() {
                                 Ok(SIGNAL::START) => {
-                                    if let Some(start) = on_start {
-                                        start(true);
-                                    }
+                                    callback(ACTION::START {
+                                        has_timed_out: true,
+                                    });
                                     running = true;
                                     break;
                                 }
                                 Ok(SIGNAL::STOP) => {
-                                    if let Some(stop) = on_stop {
-                                        stop(true);
-                                    }
-                                } // Nothing happens if already stopped
+                                    // Nothing happens if already stopped but still activate callback
+                                    callback(ACTION::STOP {
+                                        already_stopped: true,
+                                    });
+                                }
                                 Ok(SIGNAL::OTHER(message)) => {
                                     println!("Signal sent to thread with message: {}", message)
                                 }
@@ -121,5 +107,16 @@ impl Timer {
     /// Send a custom signal to the timer thread
     pub fn signal(&self, signal: SIGNAL<String>) -> SignalResult {
         self.sender.send(signal)
+    }
+
+    /// Set the timer's timeout.
+    pub fn set_timeout(&self, timeout: Duration) -> Result<(), PoisonError<MutexGuard<Duration>>> {
+        *self.timeout.lock()? = timeout;
+        Ok(())
+    }
+
+    /// Get a reference to the timer's timeout.
+    pub fn timeout(&self) -> Result<Duration, PoisonError<MutexGuard<'_, Duration>>> {
+        Ok(*self.timeout.lock()?)
     }
 }

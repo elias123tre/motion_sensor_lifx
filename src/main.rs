@@ -1,9 +1,7 @@
 use std::time::Duration;
 
 use gpio_cdev::{Chip, EventRequestFlags, EventType, LineRequestFlags};
-use motion_sensor_lifx::Timer;
-
-const TIMEOUT: Duration = Duration::from_secs(30);
+use motion_sensor_lifx::{Timer, ACTION, TIMEOUT};
 
 fn main() -> Result<(), gpio_cdev::Error> {
     let mut chip = Chip::new("/dev/gpiochip0")?;
@@ -17,27 +15,18 @@ fn main() -> Result<(), gpio_cdev::Error> {
         "rust-program",
     )?;
 
-    let timer = Timer::new(
-        TIMEOUT,
-        Some(|has_timed_out| {
-            if has_timed_out {
-                println!("Start after timeout!");
-            } else {
-                println!("Start!");
-            }
-        }),
-        Some(|already_stopped| {
-            if !already_stopped {
-                println!("Stop!");
-            } else {
-                // Do something if stopped after timeout
-            }
-        }),
-        Some(|| {
-            println!("Timeout!");
-        }),
-    );
-    *timer.timeout.clone().lock().unwrap() = Duration::from_secs(5);
+    let timer = Timer::new(TIMEOUT, |action| match action {
+        ACTION::START {
+            has_timed_out: true,
+        } => println!("Start after timeout!"),
+        ACTION::START { .. } => println!("Start!"),
+        ACTION::STOP {
+            already_stopped: false,
+        } => (), // Do something if stopped after timeout
+        ACTION::STOP { .. } => println!("Stop!"),
+        ACTION::TIMEOUT => println!("Timeout!"),
+    });
+    timer.set_timeout(Duration::from_secs(5)).unwrap();
 
     // Wait for GPIO events, this loop will go forever
     for event in events {
