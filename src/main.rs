@@ -1,16 +1,7 @@
-use std::sync::mpsc;
-use std::thread;
 use std::time::Duration;
 
 use gpio_cdev::{Chip, EventRequestFlags, EventType, LineRequestFlags};
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum SIGNAL<T> {
-    START,
-    STOP,
-    #[allow(dead_code)]
-    OTHER(T),
-}
+use motion_sensor_lifx::Timer;
 
 const TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -26,54 +17,27 @@ fn main() -> Result<(), gpio_cdev::Error> {
         "rust-program",
     )?;
 
-    // Create sender and receiver to communicate with timer thread
-    let (send, recv) = mpsc::channel::<SIGNAL<String>>();
-
-    // Create forever running timer thread that listens on channel
-    thread::spawn(move || {
-        let mut running = false;
-        // Keep the thread alive, always check for next signal
-        loop {
-            // Wait for signal or timeout, whichever comes first
-            match recv.recv_timeout(TIMEOUT) {
-                Ok(SIGNAL::STOP) => {
-                    println!("Thread stopped (timer cancelled)");
-                    running = false;
-                }
-                Ok(SIGNAL::START) => {
-                    println!("Thread restarted (timer started)");
-                    running = true;
-                }
-                // Arbitrary message received
-                Ok(SIGNAL::OTHER(message)) => {
-                    println!("Signal sent to thread with message: {}", message)
-                }
-                // Signal receiving timed out
-                Err(mpsc::RecvTimeoutError::Timeout) if running => {
-                    println!("Thread has been running for (more than) 5 secs, blocking until next signal is start");
-                    // Block until start signal is received
-                    loop {
-                        match recv.recv() {
-                            Ok(SIGNAL::START) => {
-                                println!("Thread restarted after timeout (timer started)");
-                                running = true;
-                                break;
-                            }
-                            Ok(SIGNAL::OTHER(message)) => {
-                                println!("Signal sent to thread with message: {}", message)
-                            }
-                            Ok(SIGNAL::STOP) => {} // Nothing happens if already stopped
-                            Err(_) => panic!("Channel has hung up"),
-                        }
-                    }
-                }
-                Err(mpsc::RecvTimeoutError::Timeout) => {} // Ignore timeout while timer not running
-                Err(_) => {
-                    panic!("Channel has hung up")
-                }
+    let timer = Timer::new(
+        TIMEOUT,
+        Some(|has_timed_out| {
+            if has_timed_out {
+                println!("Start after timeout!");
+            } else {
+                println!("Start!");
             }
-        }
-    });
+        }),
+        Some(|already_stopped| {
+            if !already_stopped {
+                println!("Stop!");
+            } else {
+                // Do something if stopped after timeout
+            }
+        }),
+        Some(|| {
+            println!("Timeout!");
+        }),
+    );
+    *timer.timeout.clone().lock().unwrap() = Duration::from_secs(5);
 
     // Wait for GPIO events, this loop will go forever
     for event in events {
@@ -83,19 +47,13 @@ fn main() -> Result<(), gpio_cdev::Error> {
             EventType::RisingEdge => {
                 println!("Motion on");
                 // Stop timer
-                send.send(SIGNAL::STOP)
-                    .expect("Thread stopped, cannot send signal");
+                timer.stop().expect("Thread stopped, cannot send signal");
             }
             // If PIR detects no motion for ~10 seconds
             EventType::FallingEdge => {
                 println!("Motion off");
-
-                // Stop timer
-                send.send(SIGNAL::STOP)
-                    .expect("Thread stopped, cannot send signal");
-                // Then restart timer
-                send.send(SIGNAL::START)
-                    .expect("Thread stopped, cannot send signal");
+                // Restart timer
+                timer.restart().expect("Thread stopped, cannot send signal");
             }
         }
     }
