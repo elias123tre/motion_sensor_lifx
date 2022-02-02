@@ -31,60 +31,63 @@ impl Timer {
         let (sender, receiver) = mpsc::channel();
 
         // Create forever running timer thread that listens on channel
-        let thread = thread::spawn(move || {
-            let mut running = false;
-            // Keep the thread alive, always check for next signal
-            loop {
-                // Wait for signal or timeout, whichever comes first
-                match receiver.recv_timeout(*timeout_inner.lock().unwrap()) {
-                    Ok(SIGNAL::STOP) => {
-                        callback(ACTION::STOP {
-                            already_stopped: false,
-                        });
-                        running = false;
-                    }
-                    Ok(SIGNAL::START) => {
-                        callback(ACTION::START {
-                            has_timed_out: false,
-                        });
-                        running = true;
-                    }
-                    // Arbitrary message received
-                    Ok(SIGNAL::OTHER(message)) => {
-                        println!("Signal received on thread with message: {}", message)
-                    }
-                    // Signal receiving timed out
-                    Err(mpsc::RecvTimeoutError::Timeout) if running => {
-                        callback(ACTION::TIMEOUT);
+        let thread = thread::Builder::new()
+            .name("timer".to_string())
+            .spawn(move || {
+                let mut running = false;
+                // Keep the thread alive, always check for next signal
+                loop {
+                    // Wait for signal or timeout, whichever comes first
+                    match receiver.recv_timeout(*timeout_inner.lock().unwrap()) {
+                        Ok(SIGNAL::STOP) => {
+                            callback(ACTION::STOP {
+                                already_stopped: false,
+                            });
+                            running = false;
+                        }
+                        Ok(SIGNAL::START) => {
+                            callback(ACTION::START {
+                                has_timed_out: false,
+                            });
+                            running = true;
+                        }
+                        // Arbitrary message received
+                        Ok(SIGNAL::OTHER(message)) => {
+                            println!("Signal received on thread with message: {}", message)
+                        }
+                        // Signal receiving timed out
+                        Err(mpsc::RecvTimeoutError::Timeout) if running => {
+                            callback(ACTION::TIMEOUT);
 
-                        // Block until start signal is received
-                        loop {
-                            match receiver.recv() {
-                                Ok(SIGNAL::START) => {
-                                    callback(ACTION::START {
-                                        has_timed_out: true,
-                                    });
-                                    running = true;
-                                    break;
+                            // Block until start signal is received
+                            loop {
+                                match receiver.recv() {
+                                    Ok(SIGNAL::START) => {
+                                        callback(ACTION::START {
+                                            has_timed_out: true,
+                                        });
+                                        running = true;
+                                        break;
+                                    }
+                                    Ok(SIGNAL::STOP) => {
+                                        // Nothing happens if already stopped but still activate callback
+                                        callback(ACTION::STOP {
+                                            already_stopped: true,
+                                        });
+                                    }
+                                    Ok(SIGNAL::OTHER(message)) => {
+                                        println!("Signal sent to thread with message: {}", message)
+                                    }
+                                    Err(err) => panic!("Channel has hung up: {}", err),
                                 }
-                                Ok(SIGNAL::STOP) => {
-                                    // Nothing happens if already stopped but still activate callback
-                                    callback(ACTION::STOP {
-                                        already_stopped: true,
-                                    });
-                                }
-                                Ok(SIGNAL::OTHER(message)) => {
-                                    println!("Signal sent to thread with message: {}", message)
-                                }
-                                Err(err) => panic!("Channel has hung up: {}", err),
                             }
                         }
+                        Err(mpsc::RecvTimeoutError::Timeout) => {} // Ignore timeout while timer not running
+                        Err(err) => panic!("Channel has hung up: {}", err),
                     }
-                    Err(mpsc::RecvTimeoutError::Timeout) => {} // Ignore timeout while timer not running
-                    Err(err) => panic!("Channel has hung up: {}", err),
                 }
-            }
-        });
+            })
+            .unwrap();
 
         Self {
             thread,
@@ -139,8 +142,9 @@ mod test {
         assert_eq!(timer.timeout().unwrap(), Duration::from_secs(10));
     }
     #[test]
+    #[ignore]
     fn test_start() {
-        let timer = Timer::new(Duration::from_secs(5), |action| {
+        let timer = Timer::new(Duration::from_secs(2), |action| {
             assert_eq!(
                 action,
                 ACTION::START {
@@ -149,29 +153,31 @@ mod test {
             );
         });
         timer.start().unwrap();
+        std::thread::sleep(Duration::from_secs(2));
     }
     #[test]
+    #[ignore]
     fn test_stop() {
-        let timer = Timer::new(Duration::from_secs(5), |action| {
+        let timer = Timer::new(Duration::from_secs(1), |action| {
             assert_eq!(
                 action,
                 ACTION::STOP {
-                    already_stopped: true
+                    already_stopped: false
                 }
             );
         });
         timer.stop().unwrap();
+        std::thread::sleep(Duration::from_secs(2));
     }
     #[test]
+    #[ignore]
     fn test_timeout() {
-        let timer = Timer::new(Duration::from_secs(5), |action| {
-            assert_eq!(
-                action,
-                ACTION::START {
-                    has_timed_out: false
-                }
-            );
+        let timer = Timer::new(Duration::from_secs(1), |action| {
+            if !matches!(action, ACTION::START { .. }) {
+                assert_eq!(action, ACTION::TIMEOUT, "waiting for timeout in callback");
+            }
         });
         timer.start().unwrap();
+        std::thread::sleep(Duration::from_secs(2));
     }
 }
