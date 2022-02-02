@@ -2,7 +2,7 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "Cargo cross-compile build",
+			"label": "Cargo build",
 			"type": "shell",
 			"command": "cargo",
 			"args": [
@@ -19,20 +19,9 @@
 			},
 		},
 		{
-			"label": "Copy to Raspberry Pi",
+			"label": "Cargo remote test",
 			"type": "shell",
-			"command": "robocopy /NFL /NDL /NJH /NJS /nc /ns /np target/arm-unknown-linux-gnueabihf/release P:/ motion_sensor_lifx; True",
-			"dependsOn": [
-				"Cargo cross-compile build"
-			]
-		},
-		{
-			"label": "Run on Raspberry Pi",
-			"type": "shell",
-			"command": "ssh -t pi@raspi \"sudo ~/motion_sensor_lifx\"",
-			"dependsOn": [
-				"Copy to Raspberry Pi"
-			],
+			"command": "cargo test",
 			"group": {
 				"kind": "test",
 				"isDefault": true

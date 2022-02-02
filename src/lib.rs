@@ -25,5 +25,6 @@ pub mod timer;
 pub use timer::Timer;
 
 pub mod light;
-// TODO: Change to specific items
-pub use light::*;
+pub use light::Light;
+
+pub use lifx_core::Message;

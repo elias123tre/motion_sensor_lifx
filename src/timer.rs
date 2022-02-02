@@ -19,8 +19,11 @@ pub struct Timer {
 }
 
 impl Timer {
-    /// Create new timer
-    pub fn new(timeout: Duration, callback: fn(ACTION) -> ()) -> Self {
+    /// Create new timer with `timeout` and `callback`
+    pub fn new<F: 'static + FnMut(ACTION) -> () + std::marker::Send>(
+        timeout: Duration,
+        mut callback: F,
+    ) -> Self {
         let timeout_mutex = Arc::new(Mutex::new(timeout));
         let timeout_inner = Arc::clone(&timeout_mutex);
 
@@ -109,14 +112,66 @@ impl Timer {
         self.sender.send(signal)
     }
 
-    /// Set the timer's timeout.
+    /// Set the timer's timeout
     pub fn set_timeout(&self, timeout: Duration) -> Result<(), PoisonError<MutexGuard<Duration>>> {
         *self.timeout.lock()? = timeout;
         Ok(())
     }
 
-    /// Get a reference to the timer's timeout.
+    /// Get a dereferenced timeout
     pub fn timeout(&self) -> Result<Duration, PoisonError<MutexGuard<'_, Duration>>> {
         Ok(*self.timeout.lock()?)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_creation() {
+        let _timer = Timer::new(Duration::from_secs(5), |_action| {});
+    }
+    #[test]
+    fn test_set_timeout() {
+        let timer = Timer::new(Duration::from_secs(5), |_action| {});
+        timer.set_timeout(Duration::from_secs(10)).unwrap();
+        assert_eq!(timer.timeout().unwrap(), Duration::from_secs(10));
+    }
+    #[test]
+    fn test_start() {
+        let timer = Timer::new(Duration::from_secs(5), |action| {
+            assert_eq!(
+                action,
+                ACTION::START {
+                    has_timed_out: false
+                }
+            );
+        });
+        timer.start().unwrap();
+    }
+    #[test]
+    fn test_stop() {
+        let timer = Timer::new(Duration::from_secs(5), |action| {
+            assert_eq!(
+                action,
+                ACTION::STOP {
+                    already_stopped: true
+                }
+            );
+        });
+        timer.stop().unwrap();
+    }
+    #[test]
+    fn test_timeout() {
+        let timer = Timer::new(Duration::from_secs(5), |action| {
+            assert_eq!(
+                action,
+                ACTION::START {
+                    has_timed_out: false
+                }
+            );
+        });
+        timer.start().unwrap();
     }
 }

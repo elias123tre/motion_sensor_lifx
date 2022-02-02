@@ -1,35 +1,105 @@
+use std::error::Error;
+use std::net::ToSocketAddrs;
 use std::net::UdpSocket;
-use std::{error::Error, net::ToSocketAddrs};
 
 use lifx_core::{BuildOptions, Message, RawMessage};
 
-// pub fn build(&self) -> Result<RawMessage, Box<dyn Error>> {
-//     let options = BuildOptions {
-//         target: None,
-//         ack_required: false,
-//         res_required: false,
-//         sequence: 0,
-//         source: 0,
-//     };
+#[derive(Debug)]
+pub struct Light<A: ToSocketAddrs> {
+    pub device: A,
+    pub socket: UdpSocket,
+    pub options: BuildOptions,
+}
 
-//     let message = match self {
-//         Message::ON => Message::LightSetPower {
-//             level: 0xFF,
-//             duration: 0,
-//         },
-//         Message::OFF => Message::LightSetPower {
-//             level: 0x00,
-//             duration: 0,
-//         },
-//         Message::LEVEL(_) => todo!(),
-//     };
-//     Ok(RawMessage::build(&options, message).expect("Could not build message"))
-// }
-// pub fn send<A: ToSocketAddrs>(&self, address: A) -> Result<(), Box<dyn Error>> {
-//     let sock = UdpSocket::bind::<A>(address)?;
-//     Message::ON.send("192.168.1.1:56700");
-//     let bytes = msg.pack().unwrap();
-//     sock.send(&bytes)?;
+impl<A: ToSocketAddrs> Light<A>
+where
+    A: Copy,
+{
+    /// Create new light with ip address `device` (see [`ToSocketAddrs`]) and optional BuildOptions for message header
+    pub fn new(device: A) -> Result<Self, std::io::Error> {
+        let socket = UdpSocket::bind("[::]:0")?;
+        socket.connect(device)?;
+        let options = BuildOptions::default();
 
-//     Ok(())
-// }
+        Ok(Self {
+            device,
+            socket,
+            options,
+        })
+    }
+
+    /// Get [`RawMessage`] from [`Message`]
+    pub fn raw_message(&self, message: Message) -> Result<RawMessage, Box<dyn Error>> {
+        Ok(RawMessage::build(&self.options, message).expect("Unable to build RawMessage"))
+    }
+
+    /// Send `message` to self
+    pub fn send(&self, message: Message) -> Result<(), Box<dyn Error>> {
+        let bytes = self
+            .raw_message(message)?
+            .pack()
+            .expect("Unable to pack RawMessage to Vec<u8>");
+        self.socket.send_to(&bytes, self.device)?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    const TAKLAMPA: &str = "192.168.1.99:56700";
+    #[allow(dead_code)]
+    const LIFXZ: &str = "192.168.1.45:56700";
+
+    #[test]
+    fn test_connect() {
+        let light = Light::new(TAKLAMPA).unwrap();
+        assert_eq!(light.device, TAKLAMPA);
+    }
+
+    #[test]
+    fn test_raw_message() {
+        let light = Light::new(TAKLAMPA).unwrap();
+        let message = Message::LightSetPower {
+            level: 0xFF,
+            duration: 0,
+        };
+        let raw_message = light.raw_message(message).unwrap();
+        raw_message.validate();
+        assert_eq!(raw_message.packed_size(), 42);
+        assert_eq!(
+            raw_message.pack().unwrap(),
+            vec![
+                42, 0, 0, 52, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 117, 0, 0, 0, 255, 255, 0, 0, 0, 0
+            ]
+        );
+    }
+
+    #[test]
+    fn test_get_info() {
+        let light = Light::new(TAKLAMPA).unwrap();
+        let message = Message::GetInfo;
+        light.send(message).unwrap();
+    }
+
+    #[test]
+    fn test_turn_on() {
+        let light = Light::new(TAKLAMPA).unwrap();
+        let message = Message::LightSetPower {
+            level: u16::MAX,
+            duration: 0,
+        };
+        light.send(message).unwrap();
+    }
+
+    #[test]
+    fn test_turn_off() {
+        let light = Light::new(TAKLAMPA).unwrap();
+        let message = Message::LightSetPower {
+            level: u16::MIN,
+            duration: 0,
+        };
+        light.send(message).unwrap();
+    }
+}
