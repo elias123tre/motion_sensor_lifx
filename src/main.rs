@@ -5,8 +5,9 @@ use motion_sensor_lifx::{Timer, ACTION, TIMEOUT};
 
 fn main() -> Result<(), gpio_cdev::Error> {
     let mut chip = Chip::new("/dev/gpiochip0")?;
+    let pin = 17;
     // Error will appear here if line is occupied
-    let line = chip.get_line(17)?;
+    let line = chip.get_line(pin)?;
 
     // Get iterator over input events from line
     let events = line.events(
@@ -21,12 +22,14 @@ fn main() -> Result<(), gpio_cdev::Error> {
         } => println!("Start after timeout!"),
         ACTION::START { .. } => println!("Start!"),
         ACTION::STOP {
-            already_stopped: false,
-        } => (), // Do something if stopped after timeout
+            already_stopped: true,
+        } => (), // Do something if stopped after already timed out
         ACTION::STOP { .. } => println!("Stop!"),
         ACTION::TIMEOUT => println!("Timeout!"),
     });
     timer.set_timeout(Duration::from_secs(5)).unwrap();
+
+    println!("Program started and waiting for events on GPIO pin {}", pin);
 
     // Wait for GPIO events, this loop will go forever
     for event in events {

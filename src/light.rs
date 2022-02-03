@@ -30,17 +30,18 @@ where
 
     /// Get [`RawMessage`] from [`Message`]
     pub fn raw_message(&self, message: Message) -> Result<RawMessage, Box<dyn Error>> {
-        Ok(RawMessage::build(&self.options, message).expect("Unable to build RawMessage"))
+        Ok(RawMessage::build(&self.options, message)?)
     }
 
     /// Send `message` to self
     pub fn send(&self, message: Message) -> Result<(), Box<dyn Error>> {
-        let bytes = self
-            .raw_message(message)?
-            .pack()
-            .expect("Unable to pack RawMessage to Vec<u8>");
+        let bytes = self.raw_message(message)?.pack()?;
         self.socket.send_to(&bytes, self.device)?;
         Ok(())
+    }
+
+    pub fn receive(&self) -> Result<Message, Box<dyn Error>> {
+        Ok(Message::GetInfo)
     }
 }
 
