@@ -3,8 +3,11 @@ use std::time::Duration;
 /// The signals that can be sent to a [`Timer`]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SIGNAL<T> {
+    /// Start the timer
     START,
+    /// Stop the timer
     STOP,
+    /// Send arbitrary message to socket
     OTHER(T),
 }
 
@@ -19,7 +22,10 @@ pub enum ACTION {
     TIMEOUT,
 }
 
+/// The timeout for the PIR timer
 pub const TIMEOUT: Duration = Duration::from_secs(30);
+/// The timeout for UDP socket read and write
+pub const SOCKET_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub mod timer;
 pub use timer::Timer;

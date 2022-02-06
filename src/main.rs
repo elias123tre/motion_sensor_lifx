@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use gpio_cdev::{Chip, EventRequestFlags, EventType, LineRequestFlags};
 use motion_sensor_lifx::{Timer, ACTION, TIMEOUT};
 
@@ -27,7 +25,6 @@ fn main() -> Result<(), gpio_cdev::Error> {
         ACTION::STOP { .. } => println!("Stop!"),
         ACTION::TIMEOUT => println!("Timeout!"),
     });
-    timer.set_timeout(Duration::from_secs(5)).unwrap();
 
     println!("Program started and waiting for events on GPIO pin {}", pin);
 

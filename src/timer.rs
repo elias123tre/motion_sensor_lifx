@@ -142,7 +142,7 @@ mod test {
         assert_eq!(timer.timeout().unwrap(), Duration::from_secs(10));
     }
     #[test]
-    #[ignore]
+    #[ignore = "fails after function returns"]
     fn test_start() {
         let timer = Timer::new(Duration::from_secs(2), |action| {
             assert_eq!(
@@ -156,7 +156,7 @@ mod test {
         std::thread::sleep(Duration::from_secs(2));
     }
     #[test]
-    #[ignore]
+    #[ignore = "fails after function returns"]
     fn test_stop() {
         let timer = Timer::new(Duration::from_secs(1), |action| {
             assert_eq!(
@@ -170,7 +170,7 @@ mod test {
         std::thread::sleep(Duration::from_secs(2));
     }
     #[test]
-    #[ignore]
+    #[ignore = "fails after function returns"]
     fn test_timeout() {
         let timer = Timer::new(Duration::from_secs(1), |action| {
             if !matches!(action, ACTION::START { .. }) {
