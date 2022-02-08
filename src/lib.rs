@@ -27,6 +27,9 @@ pub const TIMEOUT: Duration = Duration::from_secs(30);
 /// The timeout for UDP socket read and write
 pub const SOCKET_TIMEOUT: Duration = Duration::from_secs(30);
 
+pub const TAKLAMPA: &str = "192.168.1.11:56700";
+pub const LIFXZ: &str = "192.168.1.12:56700";
+
 pub mod timer;
 pub use timer::Timer;
 

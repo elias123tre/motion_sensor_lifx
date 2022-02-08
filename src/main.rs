@@ -1,5 +1,6 @@
 use gpio_cdev::{Chip, EventRequestFlags, EventType, LineRequestFlags};
-use motion_sensor_lifx::{Timer, ACTION, TIMEOUT};
+use lifx_core::HSBK;
+use motion_sensor_lifx::{light, Light, Message, Timer, ACTION, TAKLAMPA, TIMEOUT};
 
 fn main() -> Result<(), gpio_cdev::Error> {
     let mut chip = Chip::new("/dev/gpiochip0")?;
@@ -14,16 +15,48 @@ fn main() -> Result<(), gpio_cdev::Error> {
         "rust-program",
     )?;
 
-    let timer = Timer::new(TIMEOUT, |action| match action {
+    let light = Light::new(TAKLAMPA)?;
+
+    let timer = Timer::new(TIMEOUT, move |action| match action {
         ACTION::START {
             has_timed_out: true,
         } => println!("Start after timeout!"),
         ACTION::START { .. } => println!("Start!"),
-        ACTION::STOP {
-            already_stopped: true,
-        } => (), // Do something if stopped after already timed out
-        ACTION::STOP { .. } => println!("Stop!"),
-        ACTION::TIMEOUT => println!("Timeout!"),
+        ACTION::STOP { already_stopped } => {
+            if already_stopped {
+                println!("Stop after timeout!");
+            } else {
+                println!("Stop!");
+                // Do something if stopped after already timed out, log but don't change
+            }
+            light
+                .send(Message::LightSetColor {
+                    color: HSBK {
+                        hue: 0,
+                        saturation: 0,
+                        brightness: light::MAX,
+                        kelvin: 3000,
+                    },
+                    duration: 0,
+                    reserved: 0,
+                })
+                .unwrap_or_else(|e| unimplemented!("handle set color error gracefully: {:?}", e));
+        }
+        ACTION::TIMEOUT => {
+            println!("Timeout!");
+            light
+                .send(Message::LightSetColor {
+                    color: HSBK {
+                        hue: 0,
+                        saturation: 0,
+                        brightness: light::MIN,
+                        kelvin: 3000,
+                    },
+                    duration: 0,
+                    reserved: 0,
+                })
+                .unwrap_or_else(|e| unimplemented!("handle set color error gracefully: {:?}", e));
+        }
     });
 
     println!("Program started and waiting for events on GPIO pin {}", pin);

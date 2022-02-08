@@ -6,6 +6,9 @@ use lifx_core::{BuildOptions, Message, RawMessage};
 
 use crate::SOCKET_TIMEOUT;
 
+pub const MIN: u16 = (u16::MAX as f64 / 200_f64 + 0.5_f64) as u16; // 328
+pub const MAX: u16 = u16::MAX; // 0xFFFF = 65535
+
 #[derive(Debug)]
 pub struct Light<A: ToSocketAddrs> {
     pub device: A,
@@ -55,12 +58,10 @@ where
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use lifx_core::{EchoPayload, Service};
+    use crate::TAKLAMPA;
 
-    const TAKLAMPA: &str = "192.168.1.11:56700";
-    #[allow(dead_code)]
-    const LIFXZ: &str = "192.168.1.12:56700";
+    use super::*;
+    use lifx_core::{EchoPayload, Service, HSBK};
 
     #[test]
     fn test_connect() {
@@ -119,8 +120,34 @@ mod test {
     }
 
     #[test]
-    #[ignore = "requires lifx device on network"]
+    fn test_get_color() {
+        let light = Light::new(TAKLAMPA).unwrap();
+        light.send(Message::LightGet).unwrap();
+        let response = light.receive().unwrap();
+        println!("{:#?}", response);
+    }
+
+    #[test]
+    #[ignore = "changes light state"]
+    fn test_set_color() {
+        let light = Light::new(TAKLAMPA).unwrap();
+        light
+            .send(Message::LightSetColor {
+                color: HSBK {
+                    hue: 0,
+                    saturation: 0,
+                    brightness: (u16::MAX as f64 / 200_f64).round() as u16, // minimum visible brightness,
+                    kelvin: 3000,
+                },
+                duration: 0,
+                reserved: 0,
+            })
+            .unwrap();
+    }
+
+    #[test]
     fn test_all_info() {
+        let light = Light::new(TAKLAMPA).unwrap();
         for message in [
             Message::GetGroup,
             Message::GetHostFirmware,
@@ -134,7 +161,6 @@ mod test {
             Message::GetWifiFirmware,
             Message::GetWifiInfo,
         ] {
-            let light = Light::new(TAKLAMPA).unwrap();
             light.send(message).unwrap();
             let response = light.receive().unwrap();
             println!("{:#?}", response);
@@ -142,7 +168,7 @@ mod test {
     }
 
     #[test]
-    #[ignore = "requires lifx device on network"]
+    #[ignore = "changes light state"]
     fn test_turn_on() {
         let light = Light::new(TAKLAMPA).unwrap();
         let message = Message::LightSetPower {
@@ -153,7 +179,7 @@ mod test {
     }
 
     #[test]
-    #[ignore = "requires lifx device on network"]
+    #[ignore = "changes light state"]
     fn test_turn_off() {
         let light = Light::new(TAKLAMPA).unwrap();
         let message = Message::LightSetPower {
