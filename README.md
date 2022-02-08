@@ -6,6 +6,7 @@ Left to implement:
 - [x] Socket connection to Lifx lamp
 - [x] UDP Packet generation and sending
 - [x] Unit tests for modules
+- [ ] Update only certain HSBK fields (use `Option<u16>`)
 - [ ] Get timeout config externally with function cache
 - [ ] Algorithm for dimming when timer has passed
 - [ ] Turning timer on or off at certain times
