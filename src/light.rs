@@ -1,13 +1,29 @@
 use std::error::Error;
+use std::fmt;
 use std::net::ToSocketAddrs;
 use std::net::UdpSocket;
+use std::time::Duration;
 
+use lifx_core::HSBK;
 use lifx_core::{BuildOptions, Message, RawMessage};
 
 use crate::SOCKET_TIMEOUT;
 
 pub const MIN: u16 = (u16::MAX as f64 / 200_f64 + 0.5_f64) as u16; // 328
 pub const MAX: u16 = u16::MAX; // 0xFFFF = 65535
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrongMessageError(Message);
+impl fmt::Display for WrongMessageError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "wrong message received from light after get message: {:?}",
+            self.0
+        )
+    }
+}
+impl Error for WrongMessageError {}
 
 #[derive(Debug)]
 pub struct Light<A: ToSocketAddrs> {
@@ -53,6 +69,26 @@ where
         self.socket.recv(&mut buf)?;
         let raw = RawMessage::unpack(&buf)?;
         Ok(Message::from_raw(&raw)?)
+    }
+
+    pub fn change_color(
+        &self,
+        change: fn(HSBK) -> HSBK,
+        duration: Duration,
+    ) -> Result<(), Box<dyn Error>> {
+        self.send(Message::LightGet)?;
+        match self.receive()? {
+            Message::LightState { color, .. } => {
+                let new_color = change(color);
+                self.send(Message::LightSetColor {
+                    color: new_color,
+                    duration: duration.as_millis() as u32,
+                    reserved: 0,
+                })?;
+                Ok(())
+            }
+            msg => Err(Box::new(WrongMessageError(msg))),
+        }
     }
 }
 

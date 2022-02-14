@@ -1,6 +1,8 @@
+use std::time::Duration;
+
 use gpio_cdev::{Chip, EventRequestFlags, EventType, LineRequestFlags};
 use lifx_core::HSBK;
-use motion_sensor_lifx::{light, Light, Message, Timer, ACTION, TAKLAMPA, TIMEOUT};
+use motion_sensor_lifx::{Light, Timer, ACTION, TAKLAMPA, TIMEOUT};
 
 fn main() -> Result<(), gpio_cdev::Error> {
     let mut chip = Chip::new("/dev/gpiochip0")?;
@@ -25,36 +27,32 @@ fn main() -> Result<(), gpio_cdev::Error> {
         ACTION::STOP { already_stopped } => {
             if already_stopped {
                 println!("Stop after timeout!");
+                light
+                    .change_color(
+                        |color| HSBK {
+                            brightness: color.brightness.saturating_mul(2),
+                            ..color
+                        },
+                        Duration::from_millis(100),
+                    )
+                    .unwrap_or_else(|e| {
+                        unimplemented!("handle set color error gracefully: {:?}", e)
+                    });
             } else {
                 println!("Stop!");
                 // Do something if stopped after already timed out, log but don't change
             }
-            light
-                .send(Message::LightSetColor {
-                    color: HSBK {
-                        hue: 0,
-                        saturation: 0,
-                        brightness: light::MAX,
-                        kelvin: 3000,
-                    },
-                    duration: 0,
-                    reserved: 0,
-                })
-                .unwrap_or_else(|e| unimplemented!("handle set color error gracefully: {:?}", e));
         }
         ACTION::TIMEOUT => {
             println!("Timeout!");
             light
-                .send(Message::LightSetColor {
-                    color: HSBK {
-                        hue: 0,
-                        saturation: 0,
-                        brightness: light::MIN,
-                        kelvin: 3000,
+                .change_color(
+                    |color| HSBK {
+                        brightness: color.brightness.saturating_div(2),
+                        ..color
                     },
-                    duration: 0,
-                    reserved: 0,
-                })
+                    Duration::from_secs(5),
+                )
                 .unwrap_or_else(|e| unimplemented!("handle set color error gracefully: {:?}", e));
         }
     });

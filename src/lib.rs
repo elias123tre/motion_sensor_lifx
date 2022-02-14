@@ -36,4 +36,6 @@ pub use timer::Timer;
 pub mod light;
 pub use light::Light;
 
+pub mod temperature;
+
 pub use lifx_core::Message;
