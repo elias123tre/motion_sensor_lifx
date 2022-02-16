@@ -28,6 +28,8 @@ pub const SOCKET_TIMEOUT: Duration = Duration::from_secs(30);
 pub const TAKLAMPA: &str = "192.168.1.11:56700";
 pub const LIFXZ: &str = "192.168.1.12:56700";
 
+pub use lifx_core::Message;
+
 pub mod timer;
 pub use timer::Timer;
 
@@ -36,4 +38,5 @@ pub use light::Light;
 
 pub mod temperature;
 
-pub use lifx_core::Message;
+mod buffer;
+pub use buffer::FixedBuffer;

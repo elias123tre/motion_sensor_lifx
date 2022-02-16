@@ -9,7 +9,7 @@ use crate::{ACTION, SIGNAL};
 
 pub type SignalResult = Result<(), mpsc::SendError<SIGNAL<String>>>;
 
-/// A cancellable/interruptable timer
+/// A restartable timer
 #[derive(Debug)]
 pub struct Timer {
     thread: JoinHandle<()>,
