@@ -20,29 +20,19 @@ fn main() -> Result<(), gpio_cdev::Error> {
     let light = Light::new(TAKLAMPA)?;
 
     let timer = Timer::new(TIMEOUT, move |action| match action {
-        ACTION::START {
-            has_timed_out: true,
-        } => println!("Start after timeout!"),
-        ACTION::START { .. } => println!("Start!"),
-        ACTION::STOP { already_stopped } => {
-            if already_stopped {
-                println!("Stop after timeout!");
-                light
-                    .change_color(
-                        |color| HSBK {
-                            brightness: color.brightness.saturating_mul(2),
-                            ..color
-                        },
-                        Duration::from_millis(100),
-                    )
-                    .unwrap_or_else(|e| {
-                        unimplemented!("handle set color error gracefully: {:?}", e)
-                    });
-            } else {
-                println!("Stop!");
-                // Do something if stopped after already timed out, log but don't change
-            }
+        ACTION::START { restarted: false } => {
+            println!("Started!");
+            light
+                .change_color(
+                    |color| HSBK {
+                        brightness: color.brightness.saturating_mul(2),
+                        ..color
+                    },
+                    Duration::from_millis(100),
+                )
+                .unwrap_or_else(|e| unimplemented!("handle set color error gracefully: {:?}", e));
         }
+        ACTION::START { restarted: true } => println!("Restarted!"),
         ACTION::TIMEOUT => {
             println!("Timeout!");
             light
@@ -67,13 +57,13 @@ fn main() -> Result<(), gpio_cdev::Error> {
             EventType::RisingEdge => {
                 println!("Motion on");
                 // Stop timer
-                timer.stop().expect("Thread stopped, cannot send signal");
+                timer.start().unwrap();
             }
             // If PIR detects no motion for ~10 seconds
             EventType::FallingEdge => {
                 println!("Motion off");
                 // Restart timer
-                timer.restart().expect("Thread stopped, cannot send signal");
+                timer.start().unwrap();
             }
         }
     }

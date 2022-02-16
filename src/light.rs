@@ -9,8 +9,14 @@ use lifx_core::{BuildOptions, Message, RawMessage};
 
 use crate::SOCKET_TIMEOUT;
 
-pub const MIN: u16 = (u16::MAX as f64 / 200_f64 + 0.5_f64) as u16; // 328
-pub const MAX: u16 = u16::MAX; // 0xFFFF = 65535
+/// Minimum light brightness (to that is still on/visible)
+///
+/// `328 = 0x148 = 2% of 0xFFFF`
+pub const MIN: u16 = (u16::MAX as f64 / 200_f64 + 0.5_f64) as u16; //
+/// Maximum light brightness
+///
+/// `65535 = 0xFFFF = 100% of 0xFFFF`
+pub const MAX: u16 = u16::MAX;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct WrongMessageError(Message);
@@ -160,25 +166,10 @@ mod test {
         let light = Light::new(TAKLAMPA).unwrap();
         light.send(Message::LightGet).unwrap();
         let response = light.receive().unwrap();
-        println!("{:#?}", response);
-    }
-
-    #[test]
-    #[ignore = "changes light state"]
-    fn test_set_color() {
-        let light = Light::new(TAKLAMPA).unwrap();
-        light
-            .send(Message::LightSetColor {
-                color: HSBK {
-                    hue: 0,
-                    saturation: 0,
-                    brightness: (u16::MAX as f64 / 200_f64).round() as u16, // minimum visible brightness,
-                    kelvin: 3000,
-                },
-                duration: 0,
-                reserved: 0,
-            })
-            .unwrap();
+        match response {
+            Message::LightState { label, .. } if label == *"Taklampa" => {}
+            _ => panic!(),
+        }
     }
 
     #[test]
@@ -205,23 +196,19 @@ mod test {
 
     #[test]
     #[ignore = "changes light state"]
-    fn test_turn_on() {
+    fn test_set_color() {
         let light = Light::new(TAKLAMPA).unwrap();
-        let message = Message::LightSetPower {
-            level: u16::MAX,
-            duration: 0,
-        };
-        light.send(message).unwrap();
-    }
-
-    #[test]
-    #[ignore = "changes light state"]
-    fn test_turn_off() {
-        let light = Light::new(TAKLAMPA).unwrap();
-        let message = Message::LightSetPower {
-            level: u16::MIN,
-            duration: 0,
-        };
-        light.send(message).unwrap();
+        light
+            .send(Message::LightSetColor {
+                color: HSBK {
+                    hue: 0,
+                    saturation: 0,
+                    brightness: MIN, // minimum visible brightness,
+                    kelvin: 3000,
+                },
+                duration: 0,
+                reserved: 0,
+            })
+            .unwrap();
     }
 }

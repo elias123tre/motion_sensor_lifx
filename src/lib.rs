@@ -3,10 +3,10 @@ use std::time::Duration;
 /// The signals that can be sent to a [`Timer`]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SIGNAL<T> {
-    /// Start the timer
+    /// Start the timer, will reset the countdown
     START,
-    /// Stop the timer
-    STOP,
+    /// Terminate whole timer thread
+    TERMINATE,
     /// Send arbitrary message to socket
     OTHER(T),
 }
@@ -14,10 +14,8 @@ pub enum SIGNAL<T> {
 /// The actions that can be received in the callback of a [`Timer`]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ACTION {
-    /// `has_timed_out` is if timeout was reached before starting again
-    START { has_timed_out: bool },
-    /// `already_stopped` is if timer is not even running when stop signal is sent
-    STOP { already_stopped: bool },
+    /// If restarted while already running
+    START { restarted: bool },
     /// If a timeout is reached in [`Timer`]
     TIMEOUT,
 }
