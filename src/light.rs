@@ -166,6 +166,7 @@ mod test {
         let light = Light::new(TAKLAMPA).unwrap();
         light.send(Message::LightGet).unwrap();
         let response = light.receive().unwrap();
+        println!("{:#?}", response);
         match response {
             Message::LightState { label, .. } if label == *"Taklampa" => {}
             _ => panic!(),
@@ -203,8 +204,8 @@ mod test {
                 color: HSBK {
                     hue: 0,
                     saturation: 0,
-                    brightness: MIN, // minimum visible brightness,
-                    kelvin: 3000,
+                    brightness: 0xFFFF / 2,
+                    kelvin: 3500,
                 },
                 duration: 0,
                 reserved: 0,

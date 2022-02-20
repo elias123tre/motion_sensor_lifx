@@ -19,6 +19,8 @@ fn main() -> Result<(), gpio_cdev::Error> {
 
     let light = Light::new(TAKLAMPA)?;
 
+    const FADE_DURATION: Duration = Duration::from_secs(5);
+
     let timer = Timer::new(TIMEOUT, move |action| match action {
         ACTION::START { restarted: false } => {
             println!("Started!");
@@ -41,7 +43,7 @@ fn main() -> Result<(), gpio_cdev::Error> {
                         brightness: color.brightness.saturating_div(2),
                         ..color
                     },
-                    Duration::from_secs(5),
+                    FADE_DURATION,
                 )
                 .unwrap_or_else(|e| unimplemented!("handle set color error gracefully: {:?}", e));
         }
