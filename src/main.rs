@@ -32,7 +32,7 @@ fn main() -> Result<(), gpio_cdev::Error> {
                     },
                     Duration::from_millis(100),
                 )
-                .unwrap_or_else(|e| unimplemented!("handle set color error gracefully: {:?}", e));
+                .unwrap_or_else(|e| todo!("handle set color error gracefully: {:?}", e));
         }
         ACTION::START { restarted: true } => println!("Restarted!"),
         ACTION::TIMEOUT => {
@@ -45,7 +45,7 @@ fn main() -> Result<(), gpio_cdev::Error> {
                     },
                     FADE_DURATION,
                 )
-                .unwrap_or_else(|e| unimplemented!("handle set color error gracefully: {:?}", e));
+                .unwrap_or_else(|e| todo!("handle set color error gracefully: {:?}", e));
         }
     });
 
