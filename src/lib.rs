@@ -21,12 +21,12 @@ pub enum ACTION {
 }
 
 /// Timeout for the PIR timer
-pub const TIMEOUT: Duration = Duration::from_secs(20);
+pub const TIMEOUT: Duration = Duration::from_secs(60 * 15); // 15 minutes
 /// Timeout for UDP socket read and write
 pub const SOCKET_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Duration the light takes to completely turn off after no motion for [`TIMEOUT`] time
-pub const FADE_DURATION: Duration = Duration::from_secs(10);
+pub const FADE_DURATION: Duration = Duration::from_secs(60 * 5); // 5 minutes
 /// HSBK color for when light is off/dark after fading, by modifying input color
 pub const fn fade_target(color: HSBK) -> HSBK {
     HSBK {
