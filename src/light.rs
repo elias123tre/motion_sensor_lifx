@@ -7,12 +7,13 @@ use std::time::Duration;
 use lifx_core::HSBK;
 use lifx_core::{BuildOptions, Message, RawMessage};
 
+use crate::MATCHING_THRESHOLD;
 use crate::SOCKET_TIMEOUT;
 
-/// Minimum light brightness (to that is still on/visible)
+/// Minimum light brightness (that is still on/visible)
 ///
-/// `328 = 0x148 = 2% of 0xFFFF`
-pub const MIN: u16 = (u16::MAX as f64 / 200_f64 + 0.5_f64) as u16; //
+/// `328 = 0x148 = 2% of 0xFFFF rounded up`
+pub const MIN: u16 = (u16::MAX as f64 / 200.0 + 0.5) as u16;
 /// Maximum light brightness
 ///
 /// `65535 = 0xFFFF = 100% of 0xFFFF`
@@ -77,25 +78,85 @@ where
         Ok(Message::from_raw(&raw)?)
     }
 
-    pub fn change_color(
-        &self,
-        change: fn(HSBK) -> HSBK,
-        duration: Duration,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn change_color<F>(&self, change: F, duration: Duration) -> Result<(), Box<dyn Error>>
+    where
+        F: FnOnce(HSBK) -> HSBK,
+    {
         self.send(Message::LightGet)?;
         match self.receive()? {
             Message::LightState { color, .. } => {
                 let new_color = change(color);
-                self.send(Message::LightSetColor {
-                    color: new_color,
-                    duration: duration.as_millis() as u32,
-                    reserved: 0,
-                })?;
+                if new_color != color {
+                    self.send(Message::LightSetColor {
+                        color: new_color,
+                        duration: duration.as_millis() as u32,
+                        reserved: 0,
+                    })?;
+                }
                 Ok(())
             }
             msg => Err(Box::new(WrongMessageError(msg))),
         }
     }
+}
+
+/// Interpolation to find out if current color is between before color and target color, where current fading_time matches
+///
+/// If any of the color attributes have changed more than [`MATCHING_THRESHOLD`] percent, it returns false
+pub fn matches_fade(
+    before_color: HSBK,
+    target_color: HSBK,
+    current_color: HSBK,
+    fading_time: Duration,
+    fading_target: Duration,
+) -> bool {
+    if current_color == target_color {
+        return true;
+    }
+
+    // percent of time that has elapsed
+    let perc = (fading_time.as_secs_f32() / fading_target.as_secs_f32()).clamp(0.0, 1.0);
+
+    let hue_diff = target_color.hue as f32 - before_color.hue as f32;
+    let hue_should = before_color.hue as f32 + hue_diff * perc;
+    let hue_diveation = if hue_diff == 0.0 {
+        0.0
+    } else {
+        (hue_should - current_color.hue as f32).abs() / hue_diff.abs()
+    };
+    let saturation_diff = target_color.saturation as f32 - before_color.saturation as f32;
+    let saturation_should = before_color.saturation as f32 + saturation_diff * perc;
+    let saturation_diveation = if saturation_diff == 0.0 {
+        0.0
+    } else {
+        (saturation_should - current_color.saturation as f32).abs() / saturation_diff.abs()
+    };
+    let brightness_diff = target_color.brightness as f32 - before_color.brightness as f32;
+    let brightness_should = before_color.brightness as f32 + brightness_diff * perc;
+    let brightness_diveation = if brightness_diff == 0.0 {
+        0.0
+    } else {
+        (brightness_should - current_color.brightness as f32).abs() / brightness_diff.abs()
+    };
+    let kelvin_diff = target_color.kelvin as f32 - before_color.kelvin as f32;
+    let kelvin_should = before_color.kelvin as f32 + kelvin_diff * perc;
+    let kelvin_diveation = if kelvin_diff == 0.0 {
+        0.0
+    } else {
+        (kelvin_should - current_color.kelvin as f32).abs() / kelvin_diff.abs()
+    };
+
+    [
+        hue_diveation,
+        saturation_diveation,
+        brightness_diveation,
+        kelvin_diveation,
+    ]
+    .iter()
+    .all(|&e| {
+        println!("{e}");
+        e <= MATCHING_THRESHOLD
+    })
 }
 
 #[cfg(test)]
@@ -104,6 +165,81 @@ mod test {
 
     use super::*;
     use lifx_core::{EchoPayload, Service, HSBK};
+
+    #[test]
+    fn test_matches_fade() {
+        let res1 = matches_fade(
+            HSBK {
+                hue: 0,
+                saturation: 0,
+                brightness: 0,
+                kelvin: 3500,
+            },
+            HSBK {
+                hue: 0xFFFF,
+                saturation: 0xFFFF,
+                brightness: 0xFFFF,
+                kelvin: 3500,
+            },
+            HSBK {
+                hue: 0x7FFF,
+                saturation: 0x7FFF,
+                brightness: 0x7FFF,
+                kelvin: 3500,
+            },
+            Duration::from_secs(5),
+            Duration::from_secs(10),
+        );
+        assert!(res1, "fading color from 0 to 0xFFFF at 50% is ~0x7FFF");
+
+        let res2 = matches_fade(
+            HSBK {
+                hue: 0,
+                saturation: 0,
+                brightness: 0,
+                kelvin: 3500,
+            },
+            HSBK {
+                hue: 0xFFFF,
+                saturation: 0xFFFF,
+                brightness: 0xFFFF,
+                kelvin: 3500,
+            },
+            HSBK {
+                hue: 0x7FFF,
+                saturation: 0x7FFF,
+                brightness: 0x7FFF,
+                kelvin: 3500,
+            },
+            Duration::from_secs(8),
+            Duration::from_secs(10),
+        );
+        assert!(!res2, "fading color from 0 to 0xFFFF at 80% is not ~0x7FFF");
+
+        let res3 = matches_fade(
+            HSBK {
+                hue: 0xFFFF,
+                saturation: 0xFFFF,
+                brightness: 0xFFFF,
+                kelvin: 3500,
+            },
+            HSBK {
+                hue: 0,
+                saturation: 0,
+                brightness: 0,
+                kelvin: 3500,
+            },
+            HSBK {
+                hue: 0xFFFF,
+                saturation: 0xFFFF,
+                brightness: 0xFFFF,
+                kelvin: 3500,
+            },
+            Duration::from_secs(0),
+            Duration::from_secs(10),
+        );
+        assert!(res3, "fading color from 0xFFFF to 0 at 0% is 0xFFFF");
+    }
 
     #[test]
     fn test_connect() {

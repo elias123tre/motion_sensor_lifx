@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-/// The signals that can be sent to a [`Timer`]
+/// Signals that can be sent to a [`Timer`]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SIGNAL<T> {
     /// Start the timer, will reset the countdown
@@ -11,7 +11,7 @@ pub enum SIGNAL<T> {
     OTHER(T),
 }
 
-/// The actions that can be received in the callback of a [`Timer`]
+/// Actions that can be received in the callback of a [`Timer`]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ACTION {
     /// If restarted while already running
@@ -20,15 +20,30 @@ pub enum ACTION {
     TIMEOUT,
 }
 
-/// The timeout for the PIR timer
-pub const TIMEOUT: Duration = Duration::from_secs(30);
-/// The timeout for UDP socket read and write
+/// Timeout for the PIR timer
+pub const TIMEOUT: Duration = Duration::from_secs(20);
+/// Timeout for UDP socket read and write
 pub const SOCKET_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// Duration the light takes to completely turn off after no motion for [`TIMEOUT`] time
+pub const FADE_DURATION: Duration = Duration::from_secs(10);
+/// HSBK color for when light is off/dark after fading, by modifying input color
+pub const fn fade_target(color: HSBK) -> HSBK {
+    HSBK {
+        brightness: light::MIN,
+        ..color
+    }
+}
+/// Float percentage factor that fading color should match within for it to appear as not-changed
+pub const MATCHING_THRESHOLD: f32 = 0.05; // 2%
+
+/// Ip address of ceiling light
 pub const TAKLAMPA: &str = "192.168.1.11:56700";
+/// Ip address of light strip
 pub const LIFXZ: &str = "192.168.1.12:56700";
 
 pub use lifx_core::Message;
+use lifx_core::HSBK;
 
 pub mod timer;
 pub use timer::Timer;

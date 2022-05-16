@@ -1,8 +1,11 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use gpio_cdev::{Chip, EventRequestFlags, EventType, LineRequestFlags};
 use lifx_core::HSBK;
-use motion_sensor_lifx::{Light, Timer, ACTION, TAKLAMPA, TIMEOUT};
+
+use motion_sensor_lifx::{
+    fade_target, light::matches_fade, Light, Timer, ACTION, FADE_DURATION, TAKLAMPA, TIMEOUT,
+};
 
 fn main() -> Result<(), gpio_cdev::Error> {
     let mut chip = Chip::new("/dev/gpiochip0")?;
@@ -19,29 +22,46 @@ fn main() -> Result<(), gpio_cdev::Error> {
 
     let light = Light::new(TAKLAMPA)?;
 
-    const FADE_DURATION: Duration = Duration::from_secs(5);
+    // Is Some of (before fade color, instant fading started) if currently fading
+    let mut before_fade: Option<(HSBK, Instant)> = None;
 
     let timer = Timer::new(TIMEOUT, move |action| match action {
         ACTION::START { restarted: false } => {
             println!("Started!");
-            light
-                .change_color(
-                    |color| HSBK {
-                        brightness: color.brightness.saturating_mul(2),
-                        ..color
-                    },
-                    Duration::from_millis(100),
-                )
-                .unwrap_or_else(|e| todo!("handle set color error gracefully: {:?}", e));
+            // if fading
+            if let Some((before_color, fading_started)) = before_fade {
+                light
+                    .change_color(
+                        |current_color| {
+                            if matches_fade(
+                                before_color,
+                                fade_target(before_color),
+                                current_color,
+                                fading_started.elapsed(),
+                                FADE_DURATION,
+                            ) {
+                                println!("Light on from faded state");
+                                before_color
+                            } else {
+                                println!("Light changed during fade or off");
+                                current_color
+                            }
+                        },
+                        Duration::from_millis(100),
+                    )
+                    .unwrap_or_else(|e| todo!("handle set color error gracefully: {:?}", e));
+            }
+            before_fade = None;
         }
         ACTION::START { restarted: true } => println!("Restarted!"),
         ACTION::TIMEOUT => {
             println!("Timeout!");
             light
                 .change_color(
-                    |color| HSBK {
-                        brightness: color.brightness.saturating_div(2),
-                        ..color
+                    |color| {
+                        // save color before fade, to be able to restore
+                        before_fade = Some((color, Instant::now()));
+                        fade_target(color)
                     },
                     FADE_DURATION,
                 )
