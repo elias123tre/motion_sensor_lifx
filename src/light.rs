@@ -39,6 +39,16 @@ pub struct Light<A: ToSocketAddrs> {
     pub options: BuildOptions,
 }
 
+impl<A: ToSocketAddrs + Clone> Clone for Light<A> {
+    fn clone(&self) -> Self {
+        Self {
+            device: self.device.clone(),
+            socket: self.socket.try_clone().expect("Cannot clone socket"),
+            options: self.options.clone(),
+        }
+    }
+}
+
 impl<A: ToSocketAddrs> Light<A>
 where
     A: Copy,

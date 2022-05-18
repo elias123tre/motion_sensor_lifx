@@ -1,3 +1,29 @@
+//! Use temperature sensor to detect pressing the CPU with your finger
+//!
+//! # Example usage
+//!
+//! ```
+//! let light_temp = light.clone();
+//!
+//! let mut proc = Thermal::default();
+//! let (sender, receiver) = mpsc::channel::<()>();
+//! let print = move |therm: &Thermal| {
+//!     if therm.is_decreasing() {
+//!         println!("Is decreasing: {:?}", therm.get_temps());
+//!         light_temp
+//!             .change_color(
+//!                 |color| HSBK {
+//!                     brightness: 0xFFFF / 10,
+//!                     ..color
+//!                 },
+//!                 Duration::from_millis(100),
+//!             )
+//!             .unwrap_or_else(|e| todo!("handle set color error gracefully: {:?}", e));
+//!     }
+//! };
+//! let handle = thread::spawn(move || proc.event_loop(print, receiver));
+//! ```
+
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
@@ -44,18 +70,13 @@ impl Thermal {
     }
 
     /// Blocking polling loop for temperature, executing callback every interval with current temperature and stopping on any message from receiver
-    pub fn event_loop<F, T>(&mut self, mut callback: F, receiver: Receiver<T>) -> ()
+    pub fn event_loop<F, T>(&mut self, mut callback: F, receiver: Receiver<T>)
     where
-        F: FnMut(Vec<Temp>) -> (),
+        F: FnMut(&Thermal) -> (),
     {
         loop {
             self.readings.push(Some(self.get_temp().unwrap()));
-            let values: Vec<_> = self.readings.into_iter().collect();
-            let values: Vec<Temp> = values
-                .iter()
-                .filter_map(|c| c.and_then(|c| Some(c)))
-                .collect();
-            callback(values);
+            callback(self);
             match receiver.recv_timeout(self.interval) {
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => (),
                 _ => break,
@@ -63,27 +84,43 @@ impl Thermal {
         }
     }
 
-    /// Get average of last `n` readings
+    /// Get a vector of latest temperature readings, the vector is empty if no readings are found
+    pub fn get_temps(&self) -> Vec<Temp> {
+        let values: Vec<_> = self.readings.into_iter().collect();
+        values
+            .iter()
+            .filter_map(|c| c.and_then(|c| Some(c)))
+            .collect()
+    }
+
+    /// Get average of last `n` readings from `start` index
     ///
     /// # Panics
     /// If no temperatures has been read yet
-    pub fn average(&self, n: usize) -> Temp {
+    pub fn average(&self, start: usize, n: usize) -> Temp {
         let mut buffer = self.readings.into_iter().filter_map(|x| x);
         let first = buffer.next().expect("no temperature readings");
         let mut taken: usize = 1;
-        buffer.take(n).fold(first, |acc, val| {
+        buffer.skip(start).take(n).fold(first, |acc, val| {
             taken += 1;
             acc + val
         }) / (taken as Temp)
     }
 
-    pub fn moving_average() {
-        // let fixed_buffer = self.readings.into_iter().filter_map(|s| s);
-        // fixed_buffer
-        //     .clone()
-        //     .take(history)
-        //     .zip(fixed_buffer.skip(1).take(history))
-        //     .all(|(x, y)| x <= y);
+    /// If the temperature is
+    pub fn is_decreasing(&self) -> bool {
+        const DEGREE_THRESHOLD: f32 = 1.0;
+        let values = self.get_temps();
+        let mid = BUFFER_LEN / 2;
+        if mid > values.len() {
+            return false;
+        }
+        let (a, b) = values.split_at(mid);
+        // first average has the latest readings
+        let first_avg = a.iter().sum::<f32>() / a.len() as f32;
+        let second_avg = b.iter().sum::<f32>() / b.len() as f32;
+        // if first_avg is x degrees more than second_avg (has increased by x degrees in the last second)
+        first_avg + DEGREE_THRESHOLD < second_avg
     }
 }
 
@@ -139,21 +176,22 @@ mod tests {
     fn test_average() {
         let mut proc = Thermal::default();
         let temp = proc.next().unwrap();
-        assert_eq!(proc.average(5), temp, "average after one reading");
-        println!("{}", proc.average(3));
+        assert_eq!(proc.average(0, 5), temp, "average after one reading");
+        println!("{}", proc.average(0, 3));
         for _ in 0..20 {
             proc.next().unwrap();
         }
         println!("{:?}", proc.readings.into_iter().collect::<Vec<_>>());
-        println!("{}", proc.average(10));
+        println!("{}", proc.average(0, 10));
     }
 
     #[test]
+    #[ignore = "takes 10 seconds to run"]
     fn test_moving_average() {
         let mut proc = Thermal::default();
         let (sender, receiver) = mpsc::channel::<()>();
-        let print = move |val| {
-            println!("{:?} {:?}", Thermal::moving_average(), val);
+        let print = |therm: &Thermal| {
+            println!("{:?} {:?}", therm.is_decreasing(), therm.get_temps());
         };
         let handle = thread::spawn(move || proc.event_loop(print, receiver));
         thread::sleep(Duration::from_secs(10));
