@@ -127,40 +127,37 @@ pub fn matches_fade(
     // percent of time that has elapsed
     let perc = (fading_time.as_secs_f32() / fading_target.as_secs_f32()).clamp(0.0, 1.0);
 
-    let hue_diff = target_color.hue as f32 - before_color.hue as f32;
-    let hue_should = before_color.hue as f32 + hue_diff * perc;
-    let hue_diveation = if hue_diff == 0.0 {
-        0.0
-    } else {
-        (hue_should - current_color.hue as f32).abs() / hue_diff.abs()
+    // diveation from target color, in percentage float
+    let diveation = |target: f32, before: f32, current: f32| {
+        let diff = target - before;
+        let should = before + diff * perc;
+        if diff == 0.0 {
+            0.0
+        } else {
+            (should - current).abs() / diff.abs()
+        }
     };
-    let saturation_diff = target_color.saturation as f32 - before_color.saturation as f32;
-    let saturation_should = before_color.saturation as f32 + saturation_diff * perc;
-    let saturation_diveation = if saturation_diff == 0.0 {
-        0.0
-    } else {
-        (saturation_should - current_color.saturation as f32).abs() / saturation_diff.abs()
-    };
-    let brightness_diff = target_color.brightness as f32 - before_color.brightness as f32;
-    let brightness_should = before_color.brightness as f32 + brightness_diff * perc;
-    let brightness_diveation = if brightness_diff == 0.0 {
-        0.0
-    } else {
-        (brightness_should - current_color.brightness as f32).abs() / brightness_diff.abs()
-    };
-    let kelvin_diff = target_color.kelvin as f32 - before_color.kelvin as f32;
-    let kelvin_should = before_color.kelvin as f32 + kelvin_diff * perc;
-    let kelvin_diveation = if kelvin_diff == 0.0 {
-        0.0
-    } else {
-        (kelvin_should - current_color.kelvin as f32).abs() / kelvin_diff.abs()
-    };
-
     [
-        hue_diveation,
-        saturation_diveation,
-        brightness_diveation,
-        kelvin_diveation,
+        diveation(
+            target_color.hue.into(),
+            before_color.hue.into(),
+            current_color.hue.into(),
+        ),
+        diveation(
+            target_color.saturation.into(),
+            before_color.saturation.into(),
+            current_color.saturation.into(),
+        ),
+        diveation(
+            target_color.brightness.into(),
+            before_color.brightness.into(),
+            current_color.brightness.into(),
+        ),
+        diveation(
+            target_color.kelvin.into(),
+            before_color.kelvin.into(),
+            current_color.kelvin.into(),
+        ),
     ]
     .iter()
     .all(|&e| {
