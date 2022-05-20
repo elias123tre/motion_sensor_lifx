@@ -1,5 +1,8 @@
 //! Use temperature sensor to detect pressing the CPU with your finger
 //!
+//! For now it can decern placing the finger on the CPU vs a sudden drop in temperature from
+//! for example closing a program, quiting something CPU intensive. Should therefore not be used in production.
+//!
 //! # Example usage
 //!
 //! ```

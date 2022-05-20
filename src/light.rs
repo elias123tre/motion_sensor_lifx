@@ -160,10 +160,7 @@ pub fn matches_fade(
         ),
     ]
     .iter()
-    .all(|&e| {
-        println!("{e}");
-        e <= MATCHING_THRESHOLD
-    })
+    .all(|&e| e <= MATCHING_THRESHOLD)
 }
 
 #[cfg(test)]
@@ -175,73 +172,46 @@ mod tests {
 
     #[test]
     fn test_matches_fade() {
+        let zero = HSBK {
+            hue: 0,
+            saturation: 0,
+            brightness: 0,
+            kelvin: 3500,
+        };
+        let full = HSBK {
+            hue: 0xFFFF,
+            saturation: 0xFFFF,
+            brightness: 0xFFFF,
+            kelvin: 3500,
+        };
+        let half = HSBK {
+            hue: 0x7FFF,
+            saturation: 0x7FFF,
+            brightness: 0x7FFF,
+            kelvin: 3500,
+        };
         let res1 = matches_fade(
-            HSBK {
-                hue: 0,
-                saturation: 0,
-                brightness: 0,
-                kelvin: 3500,
-            },
-            HSBK {
-                hue: 0xFFFF,
-                saturation: 0xFFFF,
-                brightness: 0xFFFF,
-                kelvin: 3500,
-            },
-            HSBK {
-                hue: 0x7FFF,
-                saturation: 0x7FFF,
-                brightness: 0x7FFF,
-                kelvin: 3500,
-            },
+            zero,
+            full,
+            half,
             Duration::from_secs(5),
             Duration::from_secs(10),
         );
         assert!(res1, "fading color from 0 to 0xFFFF at 50% is ~0x7FFF");
 
         let res2 = matches_fade(
-            HSBK {
-                hue: 0,
-                saturation: 0,
-                brightness: 0,
-                kelvin: 3500,
-            },
-            HSBK {
-                hue: 0xFFFF,
-                saturation: 0xFFFF,
-                brightness: 0xFFFF,
-                kelvin: 3500,
-            },
-            HSBK {
-                hue: 0x7FFF,
-                saturation: 0x7FFF,
-                brightness: 0x7FFF,
-                kelvin: 3500,
-            },
+            zero,
+            full,
+            half,
             Duration::from_secs(8),
             Duration::from_secs(10),
         );
         assert!(!res2, "fading color from 0 to 0xFFFF at 80% is not ~0x7FFF");
 
         let res3 = matches_fade(
-            HSBK {
-                hue: 0xFFFF,
-                saturation: 0xFFFF,
-                brightness: 0xFFFF,
-                kelvin: 3500,
-            },
-            HSBK {
-                hue: 0,
-                saturation: 0,
-                brightness: 0,
-                kelvin: 3500,
-            },
-            HSBK {
-                hue: 0xFFFF,
-                saturation: 0xFFFF,
-                brightness: 0xFFFF,
-                kelvin: 3500,
-            },
+            full,
+            zero,
+            full,
             Duration::from_secs(0),
             Duration::from_secs(10),
         );

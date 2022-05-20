@@ -35,7 +35,7 @@ pub const fn fade_target(color: HSBK) -> HSBK {
     }
 }
 /// Float percentage factor that fading color should match within for it to appear as not-changed
-pub const MATCHING_THRESHOLD: f32 = 0.05; // 2%
+pub const MATCHING_THRESHOLD: f32 = 0.05; // 5%
 
 /// Ip address of ceiling light
 pub const TAKLAMPA: &str = "192.168.1.11:56700";
