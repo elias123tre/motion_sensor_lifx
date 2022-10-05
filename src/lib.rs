@@ -21,12 +21,12 @@ pub enum ACTION {
 }
 
 /// Timeout for the PIR timer
-pub const TIMEOUT: Duration = Duration::from_secs(60 * 15); // 15 minutes
+pub const TIMEOUT: Duration = Duration::from_secs(60 * 12); // 12 minutes
 /// Timeout for UDP socket read and write
 pub const SOCKET_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Duration the light takes to completely turn off after no motion for [`TIMEOUT`] time
-pub const FADE_DURATION: Duration = Duration::from_secs(60 * 5); // 5 minutes
+pub const FADE_DURATION: Duration = Duration::from_secs(60 * 3); // 3 minutes
 /// HSBK color for when light is off/dark after fading, by modifying input color
 pub const fn fade_target(color: HSBK) -> HSBK {
     HSBK {
@@ -37,9 +37,9 @@ pub const fn fade_target(color: HSBK) -> HSBK {
 /// Float percentage factor that fading color should match within for it to appear as not-changed
 pub const MATCHING_THRESHOLD: f32 = 0.05; // 5%
 
-/// Ip address of ceiling light
+/// IP address of ceiling light
 pub const TAKLAMPA: &str = "192.168.1.11:56700";
-/// Ip address of light strip
+/// IP address of light strip
 pub const LIFXZ: &str = "192.168.1.12:56700";
 
 pub use lifx_core::Message;
