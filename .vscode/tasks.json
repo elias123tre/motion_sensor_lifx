@@ -16,7 +16,7 @@
 			"group": {
 				"kind": "build",
 				"isDefault": true
-			},
+			}
 		},
 		{
 			"label": "Cargo remote test",
@@ -27,5 +27,16 @@
 				"isDefault": true
 			}
 		},
+		{
+			"type": "cargo",
+			"command": "run",
+			"problemMatcher": [
+				"$rustc"
+			],
+			"args": [
+				"--target=arm-unknown-linux-gnueabihf"
+			],
+			"label": "Cargo run"
+		}
 	]
 }
