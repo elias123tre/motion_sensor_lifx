@@ -6,13 +6,17 @@ Make sure you have a ssh profile called `pi` configured in your `~/.ssh/config` 
 
 ### Compile & deploy release
 
-Running the file `deploy.ps1` with Powershell will cross-compile the cargo project, copy the binary, set +x permission and restart the systemd service
+Running the file `deploy.ps1` with Powershell will cross-compile the cargo project, copy the binary, set +x permission and restart the systemd service.
 
-### Run from VS Code
+### Run the program via terminal
+
+Make sure the systemd service is stopped then `cargo run`.
+
+### Build or test from VS Code
 
 Run the default build task `CTRL+SHIFT+B` to build the binary.
 
-Run the default test task `CTRL+SHIFT+G` to build the binary, copy it to the server and then run the tests
+Run the default test task `CTRL+SHIFT+G` to build the binary, copy it to the server and then run the tests.
 
 ## [IO Architecture Diagram](https://whimsical.com/lifx-pir-diagram-LWt2r7TCdW55KH7i5Y7EtW)
 
