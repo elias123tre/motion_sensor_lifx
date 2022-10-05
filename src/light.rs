@@ -1,3 +1,5 @@
+//! Generic module for lifx lights and fade calculation utilities
+
 use std::error::Error;
 use std::fmt;
 use std::net::ToSocketAddrs;

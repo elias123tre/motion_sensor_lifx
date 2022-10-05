@@ -1,3 +1,5 @@
+//! A restartable threaded timer with configurable timeout (kind of like a hardware timer)
+
 use std::sync::mpsc::Sender;
 use std::sync::{mpsc, MutexGuard, PoisonError};
 use std::sync::{Arc, Mutex};
