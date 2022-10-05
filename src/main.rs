@@ -11,14 +11,18 @@ fn main() -> Result<(), gpio_cdev::Error> {
     let mut chip = Chip::new("/dev/gpiochip0")?;
     let pin = 17;
     // Error will appear here if line is occupied
-    let line = chip.get_line(pin)?;
+    let line = chip
+        .get_line(pin)
+        .expect(&format!("GPIO Line {} is occupied", pin));
 
     // Get iterator over input events from line
-    let events = line.events(
-        LineRequestFlags::INPUT,
-        EventRequestFlags::BOTH_EDGES,
-        "rust-program",
-    )?;
+    let events = line
+        .events(
+            LineRequestFlags::INPUT,
+            EventRequestFlags::BOTH_EDGES,
+            "rust-program",
+        )
+        .expect(&format!("Unable to receive events on GPIO line {}", pin));
 
     let light = Light::new(TAKLAMPA)?;
 
@@ -89,5 +93,6 @@ fn main() -> Result<(), gpio_cdev::Error> {
             }
         }
     }
+    eprintln!("Program reached end, no events in gpio_cdev Iterator");
     Ok(())
 }
