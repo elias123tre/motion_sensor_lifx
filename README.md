@@ -28,7 +28,8 @@ Run the default test task `CTRL+SHIFT+G` to build the binary, copy it to the ser
 - [x] Unit tests for modules
 - [x] Update only certain HSBK fields
 - [x] Algorithm for dimming when timer has passed
-- [ ] Get timeout config externally with function cache
+- [ ] Poll regularly to check if light has been on for a long time without any motion
+- [ ] Get timeout config from file/webserver with function cache
 - [ ] Turning timer on or off at certain times
 - [ ] Turning on or off with API
 - [ ] Rust Github action to build and test
