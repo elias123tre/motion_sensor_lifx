@@ -21,7 +21,7 @@ pub enum ACTION {
 }
 
 /// Timeout for the PIR timer
-pub const TIMEOUT: Duration = Duration::from_secs(60 * 12); // 12 minutes
+pub const TIMEOUT: Duration = Duration::from_secs(60 * 10); // 10 minutes
 /// Timeout for UDP socket read and write
 pub const SOCKET_TIMEOUT: Duration = Duration::from_secs(30);
 
