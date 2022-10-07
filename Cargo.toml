@@ -3,6 +3,9 @@ name = "motion_sensor_lifx"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+strip = true  # Automatically strip symbols from the binary.
+
 [dependencies]
 gpio-cdev = "0.5.1"
 lifx-core = "0.3.1"

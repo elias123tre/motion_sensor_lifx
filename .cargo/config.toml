@@ -1,8 +1,6 @@
 [target.arm-unknown-linux-gnueabihf]
 linker = "arm-linux-gnueabihf-gcc"
 runner = "powershell -File runner.ps1"
-rustflags = ["-Cstrip=symbols"]
-
 
 [build]
 target = "arm-unknown-linux-gnueabihf"
