@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::{Duration, Instant};
 
 use gpio_cdev::{Chip, EventRequestFlags, EventType, LineRequestFlags};
@@ -24,7 +26,47 @@ fn main() -> Result<(), gpio_cdev::Error> {
         )
         .expect(&format!("Unable to receive events on GPIO line {}", pin));
 
-    let light = Light::new(TAKLAMPA)?;
+    let last_activity = Arc::new(Mutex::new(Instant::now()));
+    let last_activity_clone = last_activity.clone();
+
+    let taklampa_timer = Light::new(TAKLAMPA)?;
+    let taklampa_periodic = taklampa_timer.clone();
+
+    let skrivbord_timer = Light::new(TAKLAMPA)?;
+    let skrivbord_periodic = taklampa_timer.clone();
+
+    let fonster_timer = Light::new(TAKLAMPA)?;
+    let fonster_periodic = taklampa_timer.clone();
+
+    thread::Builder::new()
+        .name("periodic_poll".to_string())
+        .spawn(move || -> ! {
+            let mut last_state: Option<HSBK> = None;
+            loop {
+                // Wait one minute
+                thread::sleep(Duration::from_secs(60));
+                // Check if
+                taklampa_periodic
+                    .change_color(
+                        |current_color: HSBK| -> HSBK {
+                            if let Some(color) = last_state {
+                                let diff =
+                                    Instant::now().duration_since(*last_activity.lock().unwrap());
+                                // if color has not changed an no motion for
+                                if color == current_color && diff > Duration::from_secs(5) {
+                                    // fade to off
+                                    return fade_target(color);
+                                }
+                            }
+                            last_state = Some(current_color);
+                            current_color
+                        },
+                        FADE_DURATION,
+                    )
+                    .unwrap_or_else(|e| todo!("handle set color error gracefully: {:?}", e));
+            }
+        })
+        .unwrap();
 
     // Is Some of (before fade color, instant fading started) if currently fading
     let mut before_fade: Option<(HSBK, Instant)> = None;
@@ -34,7 +76,7 @@ fn main() -> Result<(), gpio_cdev::Error> {
             println!("Started!");
             // if fading
             if let Some((before_color, fading_started)) = before_fade {
-                light
+                taklampa_timer
                     .change_color(
                         |current_color| {
                             if matches_fade(
@@ -60,7 +102,7 @@ fn main() -> Result<(), gpio_cdev::Error> {
         ACTION::START { restarted: true } => println!("Restarted!"),
         ACTION::TIMEOUT => {
             println!("Timeout!");
-            light
+            taklampa_timer
                 .change_color(
                     |color| {
                         // save color before fade, to be able to restore
@@ -92,7 +134,9 @@ fn main() -> Result<(), gpio_cdev::Error> {
                 timer.start().unwrap();
             }
         }
+        *last_activity_clone.lock().unwrap() = Instant::now();
     }
     eprintln!("Program reached end, no events in gpio_cdev Iterator");
+
     Ok(())
 }

@@ -41,6 +41,8 @@ pub const MATCHING_THRESHOLD: f32 = 0.05; // 5%
 pub const TAKLAMPA: &str = "192.168.1.11:56700";
 /// IP address of light strip
 pub const LIFXZ: &str = "192.168.1.12:56700";
+/// IP address of light strip
+pub const MINI: &str = "192.168.1.44:56700";
 
 pub use lifx_core::Message;
 use lifx_core::HSBK;

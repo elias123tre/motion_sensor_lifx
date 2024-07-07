@@ -24,9 +24,9 @@ pub const MAX: u16 = u16::MAX;
 #[derive(Debug, Clone, PartialEq)]
 pub struct WrongMessageError(Message);
 impl fmt::Display for WrongMessageError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
-            f,
+            fmt,
             "wrong message received from light after get message: {:?}",
             self.0
         )
@@ -55,7 +55,7 @@ impl<A: ToSocketAddrs> Light<A>
 where
     A: Copy,
 {
-    /// Create new light with ip address `device` (see [`ToSocketAddrs`]) and optional BuildOptions for message header
+    /// Create new light with ip address `device` (see [`ToSocketAddrs`]) and optional BuildOptions for message header.
     pub fn new(device: A) -> Result<Self, std::io::Error> {
         // "[::]:0" for all addresses
         let socket = UdpSocket::bind("[::]:0")?;
@@ -71,18 +71,19 @@ where
         })
     }
 
-    /// Get [`RawMessage`] from [`Message`]
+    /// Get binary [`RawMessage`] from [`Message`] using standard BuildOptions.
     pub fn raw_message(&self, message: Message) -> Result<RawMessage, Box<dyn Error>> {
         Ok(RawMessage::build(&self.options, message.clone())?)
     }
 
-    /// Send `message` to self
+    /// Send `message` to the light.
     pub fn send(&self, message: Message) -> Result<(), Box<dyn Error>> {
         let bytes = self.raw_message(message)?.pack()?;
         self.socket.send(&bytes)?;
         Ok(())
     }
 
+    /// Receive a message from the device.
     pub fn receive(&self) -> Result<Message, Box<dyn Error>> {
         let mut buf = [0; 1024];
         self.socket.recv(&mut buf)?;
@@ -90,6 +91,9 @@ where
         Ok(Message::from_raw(&raw)?)
     }
 
+    /// Change the color using function `change` which has the current color as argument, and apply it for `duration`.
+    ///
+    /// If change returns its original argument no update to the light is sent.
     pub fn change_color<F>(&self, change: F, duration: Duration) -> Result<(), Box<dyn Error>>
     where
         F: FnOnce(HSBK) -> HSBK,
@@ -112,9 +116,9 @@ where
     }
 }
 
-/// Interpolation to find out if current color is between before color and target color, where current fading_time matches
+/// Interpolation to find out if current color is between before color and target color, where current fading_time matches.
 ///
-/// If any of the color attributes have changed more than [`MATCHING_THRESHOLD`] percent, it returns false
+/// If any of the color attributes have changed more than [`MATCHING_THRESHOLD`] percent, it returns false.
 pub fn matches_fade(
     before_color: HSBK,
     target_color: HSBK,
@@ -243,6 +247,24 @@ mod tests {
                 0, 0, 0, 0, 0, 117, 0, 0, 0, 255, 255, 0, 0, 0, 0
             ]
         );
+    }
+
+    #[test]
+    fn test_create_packet() {
+        let light = Light::new(TAKLAMPA).unwrap();
+        let message = Message::LightSetColor {
+            color: HSBK {
+                hue: 0,
+                saturation: 0,
+                brightness: 0xFFFF,
+                kelvin: 3500,
+            },
+            duration: 0,
+            reserved: 0,
+        };
+        let raw_message = light.raw_message(message).unwrap();
+        raw_message.validate();
+        println!("{:?}", raw_message.pack().unwrap());
     }
 
     #[test]
